@@ -20,13 +20,13 @@ AUTH_KEY = os.path.join(local_dir, 'authentication_key.txt')
 
 
 def get_new_auth_key():
-    '''Uses Selenium to query request new auth key from FamilySearch'''
+    """Uses Selenium to query request new auth key from FamilySearch"""
     
     # Ask for credentials from user
     username = input('FamilySearch Username: ')
     password = input('FamilySearch Password: ')
     
-    # Start Selenium driver and navegate to FamilySearch platform page
+    # Start Selenium driver and navigate to FamilySearch platform page
     driver = webdriver.Chrome(CHROMEDRIVER)
     driver.get('https://www.familysearch.org/platform/')
     time.sleep(0.3)
@@ -63,22 +63,21 @@ def get_new_auth_key():
     return auth_key
 
 
-
 def read_auth_key():
-    '''Gets auth key either from saved value or gets new key if
+    """Gets auth key either from saved value or gets new key if
     old one is no longer valid
-    '''
+    """
     with open(AUTH_KEY, 'r') as fh:
         auth_key = fh.read()
     # Send a test request to check if you need a new key
-    test = requests.get('http://api.familysearch.org/platform/tree/persons?'
-                        + 'pids=LHKL-JLF',
+    test = requests.get('http://api.familysearch.org/platform/tree/persons?',
+                        params={'pids':'LHKL-JLF'},  # Just a random test ID
                         headers={'Authorization': 'Bearer {}'.format(auth_key),
                                  'Accept': 'application/json'})
     if test.status_code == 200:
         return auth_key
     # Get a new key if test request didn't work
-    elif test.status_code == 401: #Unauthorized error
+    elif test.status_code == 401:  # Unauthorized error
         print('New authentication key needed')
         return get_new_auth_key()
     else:
