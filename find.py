@@ -80,7 +80,7 @@ class FamilySearchFind(object):
         if type(df) is str:  # If df is a str assume it is the filename of a csv
             df = pd.read_csv(df, index_col=0)
         if columndict:
-            df = df[columndict.keys()].rename(columns=columndict)
+            df = df[list(columndict.keys())].rename(columns=columndict)
         for index, row in df.iterrows():
             persondict = {}
             for col in df.columns:

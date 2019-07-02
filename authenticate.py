@@ -6,61 +6,51 @@ Created on Fri May 31 14:49:43 2019
 """
 
 
-from selenium import webdriver
 import requests
-import time
-
+import socket
 import os
+import json
 
 local_dir = os.path.join(os.path.dirname(__file__))
-# Edit this to point to a selenium chromedriver file
-CHROMEDRIVER = os.path.join(local_dir, 'chromedriver.exe')
-# Location of text file containing authentication key
+# Valid app key is provided by FamilySearch
+APP_KEY = os.path.join(local_dir, 'application_key.txt')
+# The auth key file can be blank to start with. This will be
+# looked up if the one provided is not valid.
 AUTH_KEY = os.path.join(local_dir, 'authentication_key.txt')
 
 
-def get_new_auth_key():
-    """Uses Selenium to query request new auth key from FamilySearch"""
-    
-    # Ask for credentials from user
-    username = input('FamilySearch Username: ')
-    password = input('FamilySearch Password: ')
-    
-    # Start Selenium driver and navigate to FamilySearch platform page
-    driver = webdriver.Chrome(CHROMEDRIVER)
-    driver.get('https://www.familysearch.org/platform/')
-    time.sleep(0.3)
-    # Click on authenticate button
-    driver.find_element_by_xpath('//*[text ()="Authenticate"]').click()
-    time.sleep(0.3)
-    # Input credentials and click Sign in
+def get_ip():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
-        driver.find_element_by_id('userName').send_keys(username)
-        driver.find_element_by_id('password').send_keys(password)
-        driver.find_element_by_xpath('//*[text ()="Sign In"]').click()
-    # Try again if it didn't work the first time
+        # doesn't even have to be reachable
+        s.connect(('10.255.255.255', 1))
+        ip = s.getsockname()[0]
     except:
-        time.sleep(1)
-        driver.find_element_by_xpath('//*[text()="Authenticate"]').click()
-        time.sleep(0.3)
-        driver.find_element_by_id('userName').send_keys(username)
-        driver.find_element_by_id('password').send_keys(password)
-        driver.find_element_by_xpath('//*[text()="Sign In"]').click()
-    
-    # Find auth key and save it
-    auth_key = ''
-    while not auth_key:
-        try:
-            auth_key = str(driver.find_element_by_xpath('//pre').text).strip()
-        except:
-            pass
-        
-    print('New authentication key:', auth_key)
+        ip = '127.0.0.1'
+    finally:
+        s.close()
+    return ip
+
+
+def get_new_auth_key():
+    with open(APP_KEY, 'r') as fh:
+        app_key = fh.read()
+    data = {
+        'client_id': app_key,
+        'grant_type': 'unauthenticated_session',
+        'ip_address': get_ip()
+    }
+    response = requests.post('https://ident.familysearch.org/cis-web/oauth2/v3/token',
+                             data=data,
+                             headers={'Content-Type': 'application/x-www-form-urlencoded'})
+    if response.status_code != 200:
+        print('Invalid request for access token!')
+        return
+    token = json.loads(response.content)['access_token']
+    print('New authentication key:', token)
     with open(AUTH_KEY, 'w') as fh:
-        fh.write(auth_key)
-        
-    driver.quit()
-    return auth_key
+        fh.write(token)
+    return token
 
 
 def read_auth_key():
@@ -70,8 +60,8 @@ def read_auth_key():
     with open(AUTH_KEY, 'r') as fh:
         auth_key = fh.read()
     # Send a test request to check if you need a new key
-    test = requests.get('http://api.familysearch.org/platform/tree/persons?',
-                        params={'pids':'LHKL-JLF'},  # Just a random test ID
+    test = requests.get('http://api.familysearch.org/platform/tree/persons',
+                        params={'pids': 'LHKL-JLF'},  # Just a random test ID
                         headers={'Authorization': 'Bearer {}'.format(auth_key),
                                  'Accept': 'application/json'})
     if test.status_code == 200:
@@ -81,4 +71,4 @@ def read_auth_key():
         print('New authentication key needed')
         return get_new_auth_key()
     else:
-        print(test.status_code)
+        print('Unexpected error: HTTP response on test is', test.status_code)
