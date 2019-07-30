@@ -11,7 +11,10 @@ import socket
 import os
 import json
 
-local_dir = os.path.join(os.path.dirname(__file__))
+try:
+    local_dir = os.path.join(os.path.dirname(__file__))
+except NameError:
+    local_dir = os.getcwd()
 # Valid app key is provided by FamilySearch
 APP_KEY = os.path.join(local_dir, 'application_key.txt')
 # The auth key file can be blank to start with. This will be
@@ -20,6 +23,7 @@ AUTH_KEY = os.path.join(local_dir, 'authentication_key.txt')
 
 
 def get_ip():
+    """Used to get IP address for unauthenticated_session"""
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
         # doesn't even have to be reachable
@@ -35,10 +39,17 @@ def get_ip():
 def get_new_auth_key():
     with open(APP_KEY, 'r') as fh:
         app_key = fh.read()
+    # Ask for credentials from user
+    username = input('FamilySearch Username: ')
+    password = input('FamilySearch Password: ')
+    # Build request
     data = {
         'client_id': app_key,
-        'grant_type': 'unauthenticated_session',
-        'ip_address': get_ip()
+        #'grant_type': 'unauthenticated_session',
+        #'ip_address': get_ip()
+        'grant_type': 'password',
+        'username': username,
+        'password': password
     }
     response = requests.post('https://ident.familysearch.org/cis-web/oauth2/v3/token',
                              data=data,
