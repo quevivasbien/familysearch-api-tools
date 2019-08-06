@@ -1,0 +1,23 @@
+{
+"ark_id": ["ark_id"],
+"PID": ["PID"],
+"is_person": ["is_person"],
+"year": ["event_year", "event_date"],
+"place": ["event_place"],
+"given_name": ["pr_name_gn", "pr_name_gn_orig"],
+"surname": ["pr_name_surn", "pr_name_surn_orig"],
+"suffix": ["pr_name_suf", "pr_name_title", "pr_name_suffix", "pr_name_titles"],
+"sex": ["pr_sex_code", "pr_sex_code_orig", "sex_code_std", "sex_code_orig"],
+"age": ["pr_age", "pr_age_in_years", "age_in_years", "pr_age_orig", "pr_age_years"],
+"marital_status": ["pr_marital_status", "marital_status", "pr_marital_status_orig"],
+"birth_place": ["pr_bir_place", "birth_place"],
+"ethnicity": ["pr_ethnicity_css", "pr_ethnicity"],
+"race": ["pr_race_or_color", "pr_race_or_color_css", "pr_race_or_color_orig", "race_or_color_orig", "display_race_or_color", "race_std"],
+"immigration_year": ["pr_imm_year", "pr_immigration_year", "pr_imm_year_orig"],
+"relationship_to_head": ["pr_relationship_to_head", "pr_relationship_to_head_css", "pr_relationship_to_head_orig"],
+"mother_birth_place": ["pr_mthr_bir_place", "pr_mthr_birth_place"],
+"father_birth_place": ["pr_fthr_bir_place", "pr_fthr_birth_place"],
+"can_read": ["pr_flag_can_read"],
+"can_write": ["pr_flag_can_write"],
+"own_or_rent": ["pr_flag_own_or_rent"]
+}

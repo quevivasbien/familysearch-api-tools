@@ -1,6 +1,9 @@
 import requests
 import re
 import pandas as pd
+import time
+import warnings
+import json
 
 import authenticate
 
@@ -71,6 +74,18 @@ def iterate(dictionary, mydict=None):
     return mydict, count
 
 
+def create_df(response, arkid):
+    # Create dictionary based on JSON response
+    source_dict, c = iterate(response.json())
+    # Convert to Pandas DataFrame
+    for k in source_dict.keys():
+        source_dict[k] = source_dict[k].split(';')
+    df = pd.DataFrame.from_dict(source_dict, orient='index').transpose()
+    df['is_person'] = [int(i == c) for i in range(len(df))]
+    df['ark_id'] = [arkid]*len(df)
+    return df
+
+
 class FamilySearchSourcer:
 
     def __init__(self):
@@ -80,34 +95,36 @@ class FamilySearchSourcer:
             'Accept': 'application/json'
         }
 
+    def process_response(self, response, func, load, null, mutator):
+        if response.status_code == 200:
+            return mutator(response, load)
+        elif response.status_code == 204:
+            return null()  # no results
+        elif response.status_code == 401:
+            # Reauthenticate and retry
+            self.__init__()
+            return func(load)
+        elif response.status_code == 429:
+            # Wait and retry
+            wait = float(response.headers['Retry-After'])*1.1
+            print('Throttled, waiting {:.1f} seconds!'.format(wait))
+            time.sleep(wait)
+            return func(load)
+        else:
+            warnings.warn(f'HTTP status code {response.status_code}', category=RuntimeWarning)
+            return null()
+
     def get_attached_sources(self, pid):
         url = f'https://api.familysearch.org/platform/tree/persons/{pid}/sources'
         response = requests.get(url, headers=self.headers)
-        if response.status_code == 200:
-            return response.json()['sourceDescriptions']
-        elif response.status_code == 401:
-            # Reauthenticate & retry
-            self.__init__()
-            return self.get_attached_sources(pid)
-        elif response.status_code == 204:
-            return []  # no results
-        else:
-            raise Exception(f'Error: HTTP status code {response.status_code}')
+        return self.process_response(response, self.get_attached_sources, pid, list,
+                                     lambda x, _: x.json()['sourceDescriptions'])
 
     def search_for_sources(self, pid):
         url = (f'https://api.familysearch.org/platform/tree/persons/{pid}/matches?' +
                 'collection=https://familysearch.org/platform/collections/records')
         response = requests.get(url, headers=self.headers)
-        if response.status_code == 200:
-            return response.json()['entries']
-        elif response.status_code == 401:
-            # Reauthenticate & retry
-            self.__init__()
-            return self.search_for_sources(pid)
-        elif response.status_code == 204:
-            return []  # no results
-        else:
-            raise Exception(f'Error: HTTP status code {response.status_code}')
+        return self.process_response(response, self.search_for_sources, pid, list, lambda x, _: x.json()['entries'])
 
     def find_census(self, pid):
         arkids = []
@@ -115,7 +132,10 @@ class FamilySearchSourcer:
         sources = self.get_attached_sources(pid)
         for source in sources:
             if re.search(r'[Cc]ensus', ' '.join(x['value'] for x in source['titles'])):
-                arkids.append(re.search(r'[^:]+$', source['about']).group())
+                try:
+                    arkids.append(re.search(r'[^:]+$', source['about']).group())
+                except KeyError:
+                    continue
         # Search for more records
         sources = self.search_for_sources(pid)
         for source in sources:
@@ -126,34 +146,35 @@ class FamilySearchSourcer:
     def process_census(self, arkid):
         url = f'https://api.familysearch.org/platform/records/personas/{arkid}'
         response = requests.get(url, headers=self.headers)
-        if response.status_code == 200:
-            # Create dictionary based on JSON response
-            source_dict, c = iterate(response.json())
-            # Convert to Pandas DataFrame
-            for k in source_dict.keys():
-                source_dict[k] = source_dict[k].split(';')
-            df = pd.DataFrame.from_dict(source_dict, orient='index').transpose()
-            df['is_person'] = [int(i == c) for i in range(len(df))]
-            df['ark_id'] = [arkid]*len(df)
-            return df
-        elif response.status_code == 401:
-            # Reauthenticate & retry
-            self.__init__()
-            return self.process_census(arkid)
-        elif response.status_code == 204:
-            return dict()  # no results
-        else:
-            raise Exception(f'HTTP status code {response.status_code}. ArkID is {arkid}.')
+        return self.process_response(response, self.process_census, arkid, pd.DataFrame, create_df)
 
     def get_census_for_pid(self, pid):
+        print(f'Working on {pid}...')
         arkids = self.find_census(pid)
-        df = pd.concat((self.process_census(arkid) for arkid in arkids))
-        return df
+        if arkids:
+            df = pd.concat((self.process_census(arkid) for arkid in arkids), sort=True)
+            df['PID'] = [pid]*len(df)
+            return df
+        else:
+            return pd.DataFrame()
 
 
-def get_census_for_pids_in_csv(filename, col_name='PID', saveas=None):
+def condense_census(df_in, columns_file='census_columns.json'):
+    with open(columns_file, 'r') as fh:
+        columndict = json.load(fh)
+    df_out = pd.DataFrame(columns=list(columndict.keys()))
+    for k in columndict.keys():
+        for x in columndict[k]:
+            df_out[k] = df_out[k].combine_first(df_in[x])
+    return df_out
+
+
+def get_census_for_pids_in_csv(filename, col_name='PID', saveas=None, condense=True):
+    df_in = pd.read_csv(filename)
     fss = FamilySearchSourcer()
-    df = pd.concat((fss.get_census_for_pid(pid) for pid in fss[col_name])).reset_index(drop=True)
+    df_out = pd.concat((fss.get_census_for_pid(pid) for pid in df_in[col_name])).reset_index(drop=True)
+    if condense:
+        df_out = condense_census(df_out)
     if saveas is not None:
-        df.to_csv(saveas, index=False)
-    return df
+        df_out.to_csv(saveas, index=False)
+    return df_out
