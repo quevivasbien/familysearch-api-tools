@@ -26,7 +26,7 @@ def log_warning(message, origin=None, load=None, log_file='log.txt'):
     log_file (str): the filename of the text file to save the warning to.
     """
     warnings.warn(message, category=RuntimeWarning)
-    with open(log_file, 'a') as fh:
+    with open(log_file, 'a', encoding='utf-8') as fh:
         fh.write('{}; Origin: {}; Load: {}; Time: {}\n'.format(
             message, repr(origin), load, time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
         ))
@@ -188,14 +188,16 @@ class FamilySearchSourcer:
         for source in sources:
             if re.search(r'[Cc]ensus', ' '.join(x['value'] for x in source['titles'])):
                 try:
-                    arkids.append(re.search(r'[^:]+$', source['about']).group())
-                except KeyError:
+                    arkids.append(re.search(r'[^:]{4}-[^:]{3}$', source['about']).group())
+                except (KeyError, AttributeError):
                     continue
         # Search for more records
         sources = self.search_for_sources(pid)
         for source in sources:
             if re.search(r'[Cc]ensus', source['title']):
-                arkids.append(re.search(r'[^:]+$', source['id']).group())
+                arkid = re.search(r'[^:]{4}-[^:]{3}$', source['id'])
+                if arkid is not None:
+                    arkids.append(arkid.group())
         return arkids
 
     def process_census(self, arkid):
@@ -243,7 +245,7 @@ def get_census_for_pids_in_csv(filename, col_name='PID', saveas=None, condense=T
     df_out = pd.concat((fss.get_census_for_pid(pid) for pid in df_in[col_name])).reset_index(drop=True)
     if condense:
         if (saveas is not None) and save_uncondensed:
-            df_out.to_csv('uncondensed' + saveas, index=False)
+            df_out.to_csv(re.sub(r'\.{3,4}$', '', saveas) + 'uncondensed.csv', index=False)
         df_out = condense_census(df_out)
     if saveas is not None:
         df_out.to_csv(saveas, index=False)
