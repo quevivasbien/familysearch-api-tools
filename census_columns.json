@@ -15,8 +15,8 @@
 "race": ["pr_race_or_color", "pr_race_or_color_css", "pr_race_or_color_orig", "race_or_color_orig", "display_race_or_color", "race_std"],
 "immigration_year": ["pr_imm_year", "pr_immigration_year", "pr_imm_year_orig"],
 "relationship_to_head": ["pr_relationship_to_head", "pr_relationship_to_head_css", "pr_relationship_to_head_orig"],
-"mother_birth_place": ["pr_mthr_bir_place", "pr_mthr_birth_place"],
-"father_birth_place": ["pr_fthr_bir_place", "pr_fthr_birth_place"],
+"mother_birth_place": ["pr_mthr_bir_place", "pr_mthr_birth_place", "second_parents_birthplace", "mthr_birth_state_country"],
+"father_birth_place": ["pr_fthr_bir_place", "pr_fthr_birth_place", "first_parents_birthplace", "fthr_birth_state_country"],
 "can_read": ["pr_flag_can_read"],
 "can_write": ["pr_flag_can_write"],
 "own_or_rent": ["pr_flag_own_or_rent"]

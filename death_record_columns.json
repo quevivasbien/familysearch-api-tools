@@ -1,0 +1,17 @@
+{
+"ark_id": ["ark_id"],
+"PID": ["PID"],
+"is_person": ["is_person"],
+"name": ["pr_name"],
+"birth_date": ["pr_birth_date", "pr_bir_date"],
+"birth_place": ["pr_bir_place", "pr_birth_place"],
+"death_date": ["death_date_std", "event_date", "pr_death_date", "death_date_orig"],
+"death_age": ["death_age", "pr_age_in_years", "death_age_orig"],
+"last_residence": ["last_residence", "place_of_residence", "pr_residence", "pr_address_street"],
+"last_zip_code": ["zip_code_last_residence"],
+"occupation": ["pr_occupation", "occupation"],
+"marital_status": ["pr_marital_status"],
+"father_birth_place": ["pr_fthr_bir_place", "pr_fthr_birth_place"],
+"mother_birth_place": ["pr_mthr_bir_place", "pr_mthr_birth_place"],
+"state_of_issuance": ["state_of_issuance"]
+}
