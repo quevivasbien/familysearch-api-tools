@@ -18,7 +18,7 @@ with open(COLUMN_MAP, 'r') as fh:
 
 
 class FamilySearchFind(object):
-    
+
     def __init__(self):
         self.key = authenticate.read_auth_key()
 
@@ -53,7 +53,7 @@ class FamilySearchFind(object):
     def get_fsid(self, persondict):
         params = self.format_params(persondict)
         # Use matches rather than search.
-        api_root = 'http://api.familysearch.org/platform/tree/matches?q='
+        api_root = 'https://api.familysearch.org/platform/tree/matches?q='
         response = requests.get(api_root + params,
                                 headers={'Authorization': 'Bearer {}'.format(self.key),
                                          'Accept': 'application/json'})
@@ -88,7 +88,7 @@ class FamilySearchFind(object):
                     persondict[col] = row[col]
             fsids.append(self.get_fsid(persondict))
         return pd.DataFrame(fsids)
-    
+
 if __name__ == '__main__':
     input_filename = input('Type the file path of the input file: ')
     output_filename = input('Type the file path of the output file: ')

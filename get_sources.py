@@ -13,6 +13,7 @@ import pandas as pd
 import time
 import warnings
 import json
+import os
 
 import authenticate
 
@@ -118,7 +119,6 @@ def create_df(response, arkid):
         source_dict[k] = source_dict[k].split(';')
     df = pd.DataFrame.from_dict(source_dict, orient='index').transpose()
     df['is_person'] = [int(i == c) for i in range(len(df))]
-    # TODO: Record the specific arkids for each entry in the record
     try:
         arkids = [p['identifiers']['http://gedcomx.org/Persistent'][0] for p in response_dict['persons']]
         arkids = [ark_re.search(x).group() for x in arkids]
@@ -309,6 +309,33 @@ def get_records_for_pids_in_csv(lookfor, filename, col_name='PID'):
     return df_out
 
 
+def condense_and_save(df, saveas=None, condense=None, save_uncondensed=True, append=True):
+    """Saves DataFrame to CSV, with options to condense data first and save uncondensed version as well
+
+    df (DataFrame): the data to save
+    saveas (str, optional): a file name to save the outputted DataFrame at (should end with ".csv")
+    condense (function, optional): if provided, the function to use to condense the data (e.g. condense_census)
+    save_uncondensed (bool): if saveas isprovided and condense is True, determines whether to also save uncondensed data
+    append (bool): If the saveas file already exists, whether to append to that file or just replace it.
+    """
+    if condense is not None:
+        if (saveas is not None) and save_uncondensed:
+            saveas_condensed = re.sub(r'\..{3,4}$', '_uncondensed.csv', saveas)
+            if append and os.path.isfile(saveas_condensed):
+                with open(saveas_condensed, 'a') as fh:
+                    df.to_csv(fh, header=False, index=False)
+            else:
+                df.to_csv(saveas_condensed, index=False)
+        df = condense(df)
+    if saveas is not None:
+        if append and os.path.isfile(saveas):
+            with open(saveas, 'a') as fh:
+                df.to_csv(fh, header=False, index=False)
+        else:
+            df.to_csv(saveas, index=False)
+    return df
+
+
 def get_census_for_pids_in_csv(filename, col_name='PID', saveas=None, condense=True, save_uncondensed=True):
     """Runs get_records_for_pids_in_csv, looking for census records. With options to condense results and save.
 
@@ -317,23 +344,12 @@ def get_census_for_pids_in_csv(filename, col_name='PID', saveas=None, condense=T
     save_uncondensed (bool): if saveas isprovided and condense is True, determines whether to also save uncondensed data
     """
     df_out = get_records_for_pids_in_csv(CENSUS_PTTRN, filename, col_name)
-    if condense:
-        if (saveas is not None) and save_uncondensed:
-            df_out.to_csv(re.sub(r'\..{3,4}$', '_uncondensed.csv', saveas), index=False)
-        df_out = condense_census(df_out)
-    if saveas is not None:
-        df_out.to_csv(saveas, index=False)
+    df_out = condense_and_save(df_out, saveas, condense_census if condense else None, save_uncondensed)
     return df_out
-    # TODO: Change so checks if the save file already exists and appends to it instead of creating it if it does already exist
 
 
 def get_deaths_for_pids_in_csv(filename, col_name='PID', saveas=None, condense=True, save_uncondensed=True):
     """Runs get_records_for_pids_in_csv, looking for death records. With options to condense results and save."""
     df_out = get_records_for_pids_in_csv(DEATH_PTTRN, filename, col_name)
-    if condense:
-        if (saveas is not None) and save_uncondensed:
-            df_out.to_csv(re.sub(r'\..{3,4}$', '_uncondensed.csv', saveas), index=False)
-        df_out = condense_record(df_out)
-    if saveas is not None:
-        df_out.to_csv(saveas, index=False)
+    df_out = condense_and_save(df_out, saveas, condense_death_records if condense else None, save_uncondensed)
     return df_out
