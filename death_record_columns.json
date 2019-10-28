@@ -13,5 +13,6 @@
 "marital_status": ["pr_marital_status"],
 "father_birth_place": ["pr_fthr_bir_place", "pr_fthr_birth_place"],
 "mother_birth_place": ["pr_mthr_bir_place", "pr_mthr_birth_place"],
-"state_of_issuance": ["state_of_issuance"]
+"state_of_issuance": ["state_of_issuance"],
+"score": ["score"]
 }

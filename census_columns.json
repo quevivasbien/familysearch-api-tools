@@ -19,5 +19,6 @@
 "father_birth_place": ["pr_fthr_bir_place", "pr_fthr_birth_place", "first_parents_birthplace", "fthr_birth_state_country"],
 "can_read": ["pr_flag_can_read"],
 "can_write": ["pr_flag_can_write"],
-"own_or_rent": ["pr_flag_own_or_rent"]
+"own_or_rent": ["pr_flag_own_or_rent"],
+"score": ["score"]
 }

@@ -10,6 +10,7 @@ Includes tools for getting source info via FamilySearch API, particularly for ge
 import requests
 import re
 import pandas as pd
+import numpy as np
 import time
 import warnings
 import json
@@ -63,7 +64,6 @@ def iterate(dictionary, mydict=None):
                 break
     except:
         count = 0
-        pass
 
     # Initiate label and check.
     lab = ''
@@ -205,6 +205,8 @@ class FamilySearchSourcer:
 
         pid (str): the PID of the person to get records from
         lookfor (str): a regular expression to look for in record descriptions
+        
+        Returns pairs of arkids along with their confidence scores
         """
         arkids = []
         sources = self.get_attached_sources(pid)
@@ -214,31 +216,37 @@ class FamilySearchSourcer:
                     arkids.append(ark_re.search(source['about']).group())
                 except (KeyError, AttributeError):
                     continue
-        return arkids
+        return list(zip(arkids, [1]*len(arkids)))  # Confidence assumed to be 1 for sources already attached
 
     def check_other_sources(self, pid, lookfor):
         """Like check_attached_sources, but searches for as-yet-unattached records instead of looking at attached ones
 
         pid (str): the PID of the person to get records from
         lookfor (str): a regular expression to look for in record descriptions
+        
+        Returns pairs of arkids along with their confidence scores
         """
         arkids = []
+        scores = []
         sources = self.search_for_sources(pid)
         for source in sources:
             if re.search(lookfor, source['title']):
                 arkid = ark_re.search(source['id'])
                 if arkid is not None:
                     arkids.append(arkid.group())
-        return arkids
+                    scores.append(source['score'])
+        return list(zip(arkids, scores))
 
     def check_all_sources(self, pid, lookfor):
         return self.check_attached_sources(pid, lookfor) + self.check_other_sources(pid, lookfor)
 
-    def process_record(self, arkid):
+    def process_record(self, arkid, score):
         """Takes the ark ID for a record and creates a Pandas DataFrame of the data on the record."""
         url = f'https://api.familysearch.org/platform/records/personas/{arkid}'
         response = requests.get(url, headers=self.headers)
-        return self.process_response(response, self.process_record, arkid, pd.DataFrame, create_df)
+        df = self.process_response(response, self.process_record, arkid, pd.DataFrame, create_df)
+        df['score'] = [score]*len(df)
+        return df
 
     def get_records_for_pid(self, pid, lookfor):
         """Gets record data for a person with the record descriptions matching a given word/pattern
@@ -249,7 +257,7 @@ class FamilySearchSourcer:
         print(f'Working on {pid}...')
         arkids = self.check_all_sources(pid, lookfor)
         if arkids:
-            df = pd.concat((self.process_record(arkid) for arkid in arkids), sort=True)
+            df = pd.concat((self.process_record(arkid, score) for arkid, score in arkids), sort=True)
             df['PID'] = [pid]*len(df)
             return df
         else:
@@ -263,6 +271,32 @@ def process_year(yr):
         return int(yr[-4:])
     else:
         return yr
+    
+
+def dedup(df):
+    """Returns the rows in a df of record data that correspond to people in class reports.
+    Also drops records with duplicate PID and year based on their confidence scores.
+    If no record has a best confidence score, all will be dropped.
+    """
+    df_person = df[df['is_person']==1]
+    duplicates = df_person[df_person.duplicated(['PID', 'year'], keep=False)]
+    grouped = duplicates.groupby(['PID', 'year'])
+    to_keep = []
+    for group in grouped.groups:
+        dups = grouped.get_group(group)
+        max_score = dups.score.max()
+        dups = dups[dups.score == max_score]
+        if len(dups) == 1:
+            to_keep.append(dups.index[0])
+    to_drop = duplicates.index.difference(pd.Index(to_keep))
+    return df_person.drop(index=to_drop)
+#        for column in dups.columns:
+#            notna = pd.notna(dups[column])
+#            if notna.sum() > 1:
+#                dups[column] = [np.nan]*len(dups)
+#            else:
+#                dups[column] = np.repeat(dups[column][notna].unique(), len(dups))
+#        to_keep.append(dups.iloc[0])    
 
 
 def condense_record(df_in, columns_file):
